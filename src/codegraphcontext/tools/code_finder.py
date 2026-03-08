@@ -40,85 +40,157 @@ class CodeFinder:
                 LIMIT 20
             """
 
-    def find_by_function_name(self, search_term: str, fuzzy_search: bool) -> List[Dict]:
+    def find_by_function_name(self, search_term: str, fuzzy_search: bool, path: str = None) -> List[Dict]:
         """Find functions by name matching."""
         with self.driver.session() as session:
             if not fuzzy_search:
                 # Use simple match for exact search to avoid fulltext index dependency
-                result = session.run("""
-                    MATCH (node:Function {name: $name})
-                    RETURN node.name as name, node.path as path, node.line_number as line_number,
-                           node.source as source, node.docstring as docstring, node.is_dependency as is_dependency
-                    LIMIT 20
-                """, name=search_term)
+                if path:
+                    result = session.run("""
+                        MATCH (node:Function {name: $name})
+                        WHERE node.path = $path OR node.path ENDS WITH $path
+                        RETURN node.name as name, node.path as path, node.line_number as line_number,
+                               node.source as source, node.docstring as docstring, node.is_dependency as is_dependency
+                        LIMIT 20
+                    """, name=search_term, path=path)
+                else:
+                    result = session.run("""
+                        MATCH (node:Function {name: $name})
+                        RETURN node.name as name, node.path as path, node.line_number as line_number,
+                               node.source as source, node.docstring as docstring, node.is_dependency as is_dependency
+                        LIMIT 20
+                    """, name=search_term)
                 return result.data()
             
             # Fuzzy search using fulltext index (Neo4j) or CONTAINS fallback (FalkorDB)
             # On FalkorDB, format_query uses CONTAINS so we pass the raw term; on Neo4j
             # we need the Lucene field-selector prefix.
             formatted_search_term = search_term if self._is_falkordb else f"name:{search_term}"
-            result = session.run(self.format_query("Function", fuzzy_search), search_term=formatted_search_term)
+            
+            if path:
+                query = """
+                    MATCH (node:Function)
+                    WHERE toLower(node.name) CONTAINS toLower($search_term) AND (node.path = $path OR node.path ENDS WITH $path)
+                    RETURN node.name as name, node.path as path, node.line_number as line_number,
+                        node.source as source, node.docstring as docstring, node.is_dependency as is_dependency
+                    ORDER BY node.is_dependency ASC, node.name
+                    LIMIT 20
+                """
+                result = session.run(query, search_term=formatted_search_term, path=path)
+            else:
+                result = session.run(self.format_query("Function", fuzzy_search), search_term=formatted_search_term)
             return result.data()
 
-    def find_by_class_name(self, search_term: str, fuzzy_search: bool) -> List[Dict]:
+    def find_by_class_name(self, search_term: str, fuzzy_search: bool, path: str = None) -> List[Dict]:
         """Find classes by name matching."""
         with self.driver.session() as session:
             if not fuzzy_search:
                 # Use simple match for exact search to avoid fulltext index dependency
-                result = session.run("""
-                    MATCH (node:Class {name: $name})
-                    RETURN node.name as name, node.path as path, node.line_number as line_number,
-                           node.source as source, node.docstring as docstring, node.is_dependency as is_dependency
-                    LIMIT 20
-                """, name=search_term)
+                if path:
+                    result = session.run("""
+                        MATCH (node:Class {name: $name})
+                        WHERE node.path = $path OR node.path ENDS WITH $path
+                        RETURN node.name as name, node.path as path, node.line_number as line_number,
+                               node.source as source, node.docstring as docstring, node.is_dependency as is_dependency
+                        LIMIT 20
+                    """, name=search_term, path=path)
+                else:
+                    result = session.run("""
+                        MATCH (node:Class {name: $name})
+                        RETURN node.name as name, node.path as path, node.line_number as line_number,
+                               node.source as source, node.docstring as docstring, node.is_dependency as is_dependency
+                        LIMIT 20
+                    """, name=search_term)
                 return result.data()
 
             # Fuzzy search using fulltext index (Neo4j) or CONTAINS fallback (FalkorDB)
             # On FalkorDB, format_query uses CONTAINS so we pass the raw term; on Neo4j
             # we need the Lucene field-selector prefix.
             formatted_search_term = search_term if self._is_falkordb else f"name:{search_term}"
-            result = session.run(self.format_query("Class", fuzzy_search), search_term=formatted_search_term)
+            
+            if path:
+                query = """
+                    MATCH (node:Class)
+                    WHERE toLower(node.name) CONTAINS toLower($search_term) AND (node.path = $path OR node.path ENDS WITH $path)
+                    RETURN node.name as name, node.path as path, node.line_number as line_number,
+                        node.source as source, node.docstring as docstring, node.is_dependency as is_dependency
+                    ORDER BY node.is_dependency ASC, node.name
+                    LIMIT 20
+                """
+                result = session.run(query, search_term=formatted_search_term, path=path)
+            else:
+                result = session.run(self.format_query("Class", fuzzy_search), search_term=formatted_search_term)
             return result.data()
 
-    def find_by_variable_name(self, search_term: str) -> List[Dict]:
+    def find_by_variable_name(self, search_term: str, path: str = None) -> List[Dict]:
         """Find variables by name matching"""
         with self.driver.session() as session:
-            result = session.run("""
-                MATCH (v:Variable)
-                WHERE v.name CONTAINS $search_term
-                RETURN v.name as name, v.path as path, v.line_number as line_number,
-                       v.value as value, v.context as context, v.is_dependency as is_dependency
-                ORDER BY v.is_dependency ASC, v.name
-                LIMIT 20
-            """, search_term=search_term)
+            if path:
+                result = session.run("""
+                    MATCH (v:Variable)
+                    WHERE (v.name CONTAINS $search_term) AND (v.path = $path OR v.path ENDS WITH $path)
+                    RETURN v.name as name, v.path as path, v.line_number as line_number,
+                           v.value as value, v.context as context, v.is_dependency as is_dependency
+                    ORDER BY v.is_dependency ASC, v.name
+                    LIMIT 20
+                """, search_term=search_term, path=path)
+            else:
+                result = session.run("""
+                    MATCH (v:Variable)
+                    WHERE v.name CONTAINS $search_term
+                    RETURN v.name as name, v.path as path, v.line_number as line_number,
+                           v.value as value, v.context as context, v.is_dependency as is_dependency
+                    ORDER BY v.is_dependency ASC, v.name
+                    LIMIT 20
+                """, search_term=search_term)
             
             return result.data()
 
-    def find_by_content(self, search_term: str) -> List[Dict]:
+    def find_by_content(self, search_term: str, path: str = None) -> List[Dict]:
         """Find code by content matching in source or docstrings using the full-text index."""
         if self._is_falkordb:
-            return self._find_by_content_falkordb(search_term)
+            return self._find_by_content_falkordb(search_term, path)
         with self.driver.session() as session:
-            result = session.run("""
-                CALL db.index.fulltext.queryNodes("code_search_index", $search_term) YIELD node, score
-                WITH node, score
-                WHERE node:Function OR node:Class OR node:Variable
-                MATCH (node)<-[:CONTAINS]-(f:File)
-                RETURN
-                    CASE
-                        WHEN node:Function THEN 'function'
-                        WHEN node:Class THEN 'class'
-                        ELSE 'variable'
-                    END as type,
-                    node.name as name, f.path as path,
-                    node.line_number as line_number, node.source as source,
-                    node.docstring as docstring, node.is_dependency as is_dependency
-                ORDER BY score DESC
-                LIMIT 20
-            """, search_term=search_term)
+            if path:
+                result = session.run("""
+                    CALL db.index.fulltext.queryNodes("code_search_index", $search_term) YIELD node, score
+                    WITH node, score
+                    WHERE node:Function OR node:Class OR node:Variable
+                    MATCH (node)<-[:CONTAINS]-(f:File)
+                    WHERE f.path = $path OR f.path ENDS WITH $path
+                    RETURN
+                        CASE
+                            WHEN node:Function THEN 'function'
+                            WHEN node:Class THEN 'class'
+                            ELSE 'variable'
+                        END as type,
+                        node.name as name, f.path as path,
+                        node.line_number as line_number, node.source as source,
+                        node.docstring as docstring, node.is_dependency as is_dependency
+                    ORDER BY score DESC
+                    LIMIT 20
+                """, search_term=search_term, path=path)
+            else:
+                result = session.run("""
+                    CALL db.index.fulltext.queryNodes("code_search_index", $search_term) YIELD node, score
+                    WITH node, score
+                    WHERE node:Function OR node:Class OR node:Variable
+                    MATCH (node)<-[:CONTAINS]-(f:File)
+                    RETURN
+                        CASE
+                            WHEN node:Function THEN 'function'
+                            WHEN node:Class THEN 'class'
+                            ELSE 'variable'
+                        END as type,
+                        node.name as name, f.path as path,
+                        node.line_number as line_number, node.source as source,
+                        node.docstring as docstring, node.is_dependency as is_dependency
+                    ORDER BY score DESC
+                    LIMIT 20
+                """, search_term=search_term)
             return result.data()
 
-    def _find_by_content_falkordb(self, search_term: str) -> List[Dict]:
+    def _find_by_content_falkordb(self, search_term: str, path: str = None) -> List[Dict]:
         """FalkorDB-compatible content search using pure Cypher CONTAINS matching.
         FalkorDB does not support CALL db.idx.fulltext.queryNodes, so we fall back
         to substring matching on name, source, and docstring fields."""
@@ -126,19 +198,35 @@ class CodeFinder:
         with self.driver.session() as session:
             for label, type_name in [('Function', 'function'), ('Class', 'class')]:
                 try:
-                    result = session.run(f"""
-                        MATCH (node:{label})
-                        WHERE toLower(node.name) CONTAINS toLower($search_term)
-                            OR (node.source IS NOT NULL AND toLower(node.source) CONTAINS toLower($search_term))
-                            OR (node.docstring IS NOT NULL AND toLower(node.docstring) CONTAINS toLower($search_term))
-                        RETURN
-                            '{type_name}' as type,
-                            node.name as name, node.path as path,
-                            node.line_number as line_number, node.source as source,
-                            node.docstring as docstring, node.is_dependency as is_dependency
-                        ORDER BY node.is_dependency ASC, node.name
-                        LIMIT 20
-                    """, search_term=search_term)
+                    if path:
+                        result = session.run(f"""
+                            MATCH (node:{label})
+                            WHERE ((toLower(node.name) CONTAINS toLower($search_term)
+                                OR (node.source IS NOT NULL AND toLower(node.source) CONTAINS toLower($search_term))
+                                OR (node.docstring IS NOT NULL AND toLower(node.docstring) CONTAINS toLower($search_term)))
+                                AND (node.path = $path OR node.path ENDS WITH $path))
+                            RETURN
+                                '{type_name}' as type,
+                                node.name as name, node.path as path,
+                                node.line_number as line_number, node.source as source,
+                                node.docstring as docstring, node.is_dependency as is_dependency
+                            ORDER BY node.is_dependency ASC, node.name
+                            LIMIT 20
+                        """, search_term=search_term, path=path)
+                    else:
+                        result = session.run(f"""
+                            MATCH (node:{label})
+                            WHERE toLower(node.name) CONTAINS toLower($search_term)
+                                OR (node.source IS NOT NULL AND toLower(node.source) CONTAINS toLower($search_term))
+                                OR (node.docstring IS NOT NULL AND toLower(node.docstring) CONTAINS toLower($search_term))
+                            RETURN
+                                '{type_name}' as type,
+                                node.name as name, node.path as path,
+                                node.line_number as line_number, node.source as source,
+                                node.docstring as docstring, node.is_dependency as is_dependency
+                            ORDER BY node.is_dependency ASC, node.name
+                            LIMIT 20
+                        """, search_term=search_term)
                     all_results.extend(result.data())
                 except Exception:
                     logger.debug(f"FalkorDB content query failed for label {label}", exc_info=True)
@@ -637,7 +725,7 @@ class CodeFinder:
             result = session.run(query, **params)
             return result.data()
 
-    def find_by_type(self, element_type: str, limit: int = 50) -> List[Dict]:
+    def find_by_type(self, element_type: str, limit: int = 50, path: str = None) -> List[Dict]:
         """Find all elements of a specific type (Function, Class, File, Module)."""
         # Map input type to node label
         type_map = {
@@ -653,28 +741,51 @@ class CodeFinder:
             
         with self.driver.session() as session:
             if label == "File":
-                query = f"""
-                    MATCH (n:File)
-                    RETURN n.name as name, n.path as path, n.is_dependency as is_dependency
-                    ORDER BY n.path
-                    LIMIT $limit
-                """
+                if path:
+                    query = """
+                        MATCH (n:File)
+                        WHERE n.path = $path
+                        RETURN n.name as name, n.path as path, n.is_dependency as is_dependency
+                        ORDER BY n.path
+                        LIMIT $limit
+                    """
+                else:
+                    query = """
+                        MATCH (n:File)
+                        RETURN n.name as name, n.path as path, n.is_dependency as is_dependency
+                        ORDER BY n.path
+                        LIMIT $limit
+                    """
             elif label == "Module":
-                query = f"""
+                # Modules don't have a path property, so file filtering doesn't apply
+                query = """
                     MATCH (n:Module)
                     RETURN n.name as name, n.name as path, false as is_dependency
                     ORDER BY n.name
                     LIMIT $limit
                 """
             else:
-                query = f"""
-                    MATCH (n:{label})
-                    RETURN n.name as name, n.path as path, n.line_number as line_number, n.is_dependency as is_dependency
-                    ORDER BY n.is_dependency ASC, n.name
-                    LIMIT $limit
-                """
-            
-            result = session.run(query, limit=limit)
+                if path:
+                    # Support both exact path match and filename match (for flexibility)
+                    query = f"""
+                        MATCH (n:{label})
+                        WHERE n.path = $path OR n.path ENDS WITH $path
+                        RETURN n.name as name, n.path as path, n.line_number as line_number, n.is_dependency as is_dependency
+                        ORDER BY n.is_dependency ASC, n.name
+                        LIMIT $limit
+                    """
+                else:
+                    query = f"""
+                        MATCH (n:{label})
+                        RETURN n.name as name, n.path as path, n.line_number as line_number, n.is_dependency as is_dependency
+                        ORDER BY n.is_dependency ASC, n.name
+                        LIMIT $limit
+                    """
+        
+            if path and label != "Module":
+                result = session.run(query, limit=limit, path=path)
+            else:
+                result = session.run(query, limit=limit)
             return result.data()
     
     def find_module_dependencies(self, module_name: str) -> Dict[str, Any]:

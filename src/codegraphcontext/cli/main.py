@@ -1057,6 +1057,7 @@ def find_by_name(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Exact name to search for"),
     type: Optional[str] = typer.Option(None, "--type", "-t", help="Filter by type (function, class, file, module)"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path"),
     visual: bool = typer.Option(False, "--visual", "--viz", "-V", help="Show results as interactive graph visualization")
 ):
     """
@@ -1066,6 +1067,7 @@ def find_by_name(
         cgc find name MyClass
         cgc find name calculate --type function
         cgc find name MyClass --visual
+        cgc find name process_data --file src/main.py
     """
     _load_credentials()
     services = _initialize_services()
@@ -1078,9 +1080,9 @@ def find_by_name(
         
         # Search based on type filter
         if type is None or type.lower() == 'all':
-            funcs = code_finder.find_by_function_name(name, fuzzy_search=False)
-            classes = code_finder.find_by_class_name(name, fuzzy_search=False)
-            variables = code_finder.find_by_variable_name(name)
+            funcs = code_finder.find_by_function_name(name, fuzzy_search=False, path=file)
+            classes = code_finder.find_by_class_name(name, fuzzy_search=False, path=file)
+            variables = code_finder.find_by_variable_name(name, path=file)
             modules = code_finder.find_by_module_name(name)
             imports = code_finder.find_imports(name)
 
@@ -1099,15 +1101,15 @@ def find_by_name(
             results.extend(imports)
         
         elif type.lower() == 'function':
-            results = code_finder.find_by_function_name(name, fuzzy_search=False)
+            results = code_finder.find_by_function_name(name, fuzzy_search=False, path=file)
             for r in results: r['type'] = 'Function'
             
         elif type.lower() == 'class':
-            results = code_finder.find_by_class_name(name, fuzzy_search=False)
+            results = code_finder.find_by_class_name(name, fuzzy_search=False, path=file)
             for r in results: r['type'] = 'Class'
             
         elif type.lower() == 'variable':
-            results = code_finder.find_by_variable_name(name)
+            results = code_finder.find_by_variable_name(name, path=file)
             for r in results: r['type'] = 'Variable'
 
         elif type.lower() == 'module':
@@ -1115,11 +1117,14 @@ def find_by_name(
             for r in results: 
                 r['type'] = 'Module'
                 r['path'] = r.get('name')
-            
+        
         elif type.lower() == 'file':
             # Quick query for file
             with db_manager.get_driver().session() as session:
-                res = session.run("MATCH (n:File) WHERE n.name = $name RETURN n.name as name, n.path as path, n.is_dependency as is_dependency", name=name)
+                if file:
+                    res = session.run("MATCH (n:File) WHERE (n.name = $name AND (n.path = $path OR n.path ENDS WITH $path)) RETURN n.name as name, n.path as path, n.is_dependency as is_dependency", name=name, path=file)
+                else:
+                    res = session.run("MATCH (n:File) WHERE n.name = $name RETURN n.name as name, n.path as path, n.is_dependency as is_dependency", name=name)
                 results = [dict(record) for record in res]
                 for r in results: r['type'] = 'File'
         
@@ -1158,6 +1163,7 @@ def find_by_pattern(
     ctx: typer.Context,
     pattern: str = typer.Argument(..., help="Substring pattern to search (fuzzy search fallback)"),
     case_sensitive: bool = typer.Option(False, "--case-sensitive", "-c", help="Case-sensitive search"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path"),
     visual: bool = typer.Option(False, "--visual", "--viz", "-V", help="Show results as interactive graph visualization")
 ):
     """
@@ -1167,6 +1173,7 @@ def find_by_pattern(
         cgc find pattern "Auth"       # Finds Auth, Authentication, Authorize...
         cgc find pattern "process_"   # Finds process_data, process_request...
         cgc find pattern "Auth" --visual
+        cgc find pattern "handler" --file src/main.py
     """
     _load_credentials()
     services = _initialize_services()
@@ -1180,33 +1187,64 @@ def find_by_pattern(
             # Note: FalkorDB Lite might not support regex, using CONTAINS
             
             if not case_sensitive:
-                query = """
-                    MATCH (n)
-                    WHERE (n:Function OR n:Class OR n:Module OR n:Variable) AND toLower(n.name) CONTAINS toLower($pattern)
-                    RETURN 
-                        labels(n)[0] as type,
-                        n.name as name,
-                        n.path as path,
-                        n.line_number as line_number,
-                        n.is_dependency as is_dependency
-                    ORDER BY n.is_dependency ASC, n.name
-                    LIMIT 50
-                """
+                if file:
+                    query = """
+                        MATCH (n)
+                        WHERE (n:Function OR n:Class OR n:Module OR n:Variable) AND toLower(n.name) CONTAINS toLower($pattern) AND (n.path = $file OR n.path ENDS WITH $file)
+                        RETURN 
+                            labels(n)[0] as type,
+                            n.name as name,
+                            n.path as path,
+                            n.line_number as line_number,
+                            n.is_dependency as is_dependency
+                        ORDER BY n.is_dependency ASC, n.name
+                        LIMIT 50
+                    """
+                else:
+                    query = """
+                        MATCH (n)
+                        WHERE (n:Function OR n:Class OR n:Module OR n:Variable) AND toLower(n.name) CONTAINS toLower($pattern)
+                        RETURN 
+                            labels(n)[0] as type,
+                            n.name as name,
+                            n.path as path,
+                            n.line_number as line_number,
+                            n.is_dependency as is_dependency
+                        ORDER BY n.is_dependency ASC, n.name
+                        LIMIT 50
+                    """
             else:
-                 query = """
-                    MATCH (n)
-                    WHERE (n:Function OR n:Class OR n:Module OR n:Variable) AND n.name CONTAINS $pattern
-                    RETURN 
-                        labels(n)[0] as type,
-                        n.name as name,
-                        n.path as path,
-                        n.line_number as line_number,
-                        n.is_dependency as is_dependency
-                    ORDER BY n.is_dependency ASC, n.name
-                    LIMIT 50
-                """
+                if file:
+                    query = """
+                        MATCH (n)
+                        WHERE (n:Function OR n:Class OR n:Module OR n:Variable) AND n.name CONTAINS $pattern AND (n.path = $file OR n.path ENDS WITH $file)
+                        RETURN 
+                            labels(n)[0] as type,
+                            n.name as name,
+                            n.path as path,
+                            n.line_number as line_number,
+                            n.is_dependency as is_dependency
+                        ORDER BY n.is_dependency ASC, n.name
+                        LIMIT 50
+                    """
+                else:
+                    query = """
+                        MATCH (n)
+                        WHERE (n:Function OR n:Class OR n:Module OR n:Variable) AND n.name CONTAINS $pattern
+                        RETURN 
+                            labels(n)[0] as type,
+                            n.name as name,
+                            n.path as path,
+                            n.line_number as line_number,
+                            n.is_dependency as is_dependency
+                        ORDER BY n.is_dependency ASC, n.name
+                        LIMIT 50
+                    """
             
-            result = session.run(query, pattern=pattern)
+            if file:
+                result = session.run(query, pattern=pattern, file=file)
+            else:
+                result = session.run(query, pattern=pattern)
             
             results = [dict(record) for record in result]
         
@@ -1249,6 +1287,7 @@ def find_by_pattern(
 def find_by_type(
     ctx: typer.Context,
     element_type: str = typer.Argument(..., help="Type to search for (function, class, file, module)"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path"),
     limit: int = typer.Option(50, "--limit", "-l", help="Maximum results to return"),
     visual: bool = typer.Option(False, "--visual", "--viz", "-V", help="Show results as interactive graph visualization")
 ):
@@ -1259,6 +1298,7 @@ def find_by_type(
         cgc find type class
         cgc find type function --limit 100
         cgc find type class --visual
+        cgc find type function --file src/main.py
     """
     _load_credentials()
     services = _initialize_services()
@@ -1267,7 +1307,7 @@ def find_by_type(
     db_manager, graph_builder, code_finder = services
     
     try:
-        results = code_finder.find_by_type(element_type, limit)
+        results = code_finder.find_by_type(element_type, limit, path=file)
         
         if not results:
             console.print(f"[yellow]No elements found of type '{element_type}'[/yellow]")
@@ -1305,7 +1345,8 @@ def find_by_type(
 
 @find_app.command("variable")
 def find_by_variable(
-    name: str = typer.Argument(..., help="Variable name to search for")
+    name: str = typer.Argument(..., help="Variable name to search for"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path")
 ):
     """
     Find variables by name.
@@ -1313,6 +1354,7 @@ def find_by_variable(
     Examples:
         cgc find variable MAX_RETRIES
         cgc find variable config
+        cgc find variable settings --file src/config.py
     """
     _load_credentials()
     services = _initialize_services()
@@ -1321,7 +1363,7 @@ def find_by_variable(
     db_manager, graph_builder, code_finder = services
     
     try:
-        results = code_finder.find_by_variable_name(name)
+        results = code_finder.find_by_variable_name(name, path=file)
         
         if not results:
             console.print(f"[yellow]No variables found with name '{name}'[/yellow]")
@@ -1350,7 +1392,8 @@ def find_by_variable(
 
 @find_app.command("content")
 def find_by_content_search(
-    query: str = typer.Argument(..., help="Text to search for in source code and docstrings")
+    query: str = typer.Argument(..., help="Text to search for in source code and docstrings"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path")
 ):
     """
     Search code content (source and docstrings) using full-text index.
@@ -1358,6 +1401,7 @@ def find_by_content_search(
     Examples:
         cgc find content "error 503"
         cgc find content "TODO: refactor"
+        cgc find content "async def" --file src/main.py
     """
     _load_credentials()
     services = _initialize_services()
@@ -1367,7 +1411,7 @@ def find_by_content_search(
     
     try:
         try:
-            results = code_finder.find_by_content(query)
+            results = code_finder.find_by_content(query, path=file)
         except Exception as e:
             error_msg = str(e).lower()
             if ('fulltext' in error_msg or 'db.index.fulltext' in error_msg) and "Falkor" in db_manager.__class__.__name__:

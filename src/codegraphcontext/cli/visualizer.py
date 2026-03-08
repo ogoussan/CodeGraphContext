@@ -14,7 +14,8 @@ import uuid
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, List, Literal, Optional
+
 from rich.console import Console
 
 console = Console(stderr=True)
@@ -59,59 +60,113 @@ def _json_for_inline_script(data: Any) -> str:
     return raw
 
 
-def get_node_color(node_type: str) -> Dict[str, str]:
+def get_node_color(node_type: str) -> dict[str, str | dict[str, str]]:
     """Return color configuration based on node type with a modern palette."""
     # Using HSL-based harmonious colors for a premium look
     colors = {
-        "Function": {"background": "#D1FAE5", "border": "#10B981", "highlight": "#34D399"},  # Teal/Emerald
-        "Class": {"background": "#DBEAFE", "border": "#3B82F6", "highlight": "#60A5FA"},     # Blue
-        "Module": {"background": "#F3E8FF", "border": "#A855F7", "highlight": "#C084FC"},    # Purple
-        "File": {"background": "#E0E7FF", "border": "#6366F1", "highlight": "#818CF8"},      # Indigo
-        "Repository": {"background": "#FFE4E6", "border": "#F43F5E", "highlight": "#FB7185"},# Rose
-        "Package": {"background": "#F1F5F9", "border": "#64748B", "highlight": "#94A3B8"},   # Slate
-        "Variable": {"background": "#FEF3C7", "border": "#F59E0B", "highlight": "#FBBF24"},  # Amber
-        "Caller": {"background": "#CFFAFE", "border": "#06B6D4", "highlight": "#22D3EE"},    # Cyan
-        "Callee": {"background": "#ECFDF5", "border": "#10B981", "highlight": "#34D399"},    # Emerald
-        "Target": {"background": "#FEE2E2", "border": "#EF4444", "highlight": "#F87171"},    # Red
-        "Source": {"background": "#E0F2FE", "border": "#0EA5E9", "highlight": "#38BDF8"},    # Sky Blue
-        "Parent": {"background": "#FFEDD5", "border": "#F97316", "highlight": "#FB923C"},    # Orange
-        "Child": {"background": "#F0FDFA", "border": "#14B8A6", "highlight": "#2DD4BF"},     # Teal
-        "Override": {"background": "#EDE9FE", "border": "#8B5CF6", "highlight": "#A78BFA"},   # Violet
-        "default": {"background": "#F1F5F9", "border": "#94A3B8", "highlight": "#CBD5E1"},   # Default Slate
+        "Function": {
+            "background": "#D1FAE5",
+            "border": "#10B981",
+            "highlight": "#34D399",
+        },  # Teal/Emerald
+        "Class": {
+            "background": "#DBEAFE",
+            "border": "#3B82F6",
+            "highlight": "#60A5FA",
+        },  # Blue
+        "Module": {
+            "background": "#F3E8FF",
+            "border": "#A855F7",
+            "highlight": "#C084FC",
+        },  # Purple
+        "File": {
+            "background": "#E0E7FF",
+            "border": "#6366F1",
+            "highlight": "#818CF8",
+        },  # Indigo
+        "Repository": {
+            "background": "#FFE4E6",
+            "border": "#F43F5E",
+            "highlight": "#FB7185",
+        },  # Rose
+        "Package": {
+            "background": "#F1F5F9",
+            "border": "#64748B",
+            "highlight": "#94A3B8",
+        },  # Slate
+        "Variable": {
+            "background": "#FEF3C7",
+            "border": "#F59E0B",
+            "highlight": "#FBBF24",
+        },  # Amber
+        "Caller": {
+            "background": "#CFFAFE",
+            "border": "#06B6D4",
+            "highlight": "#22D3EE",
+        },  # Cyan
+        "Callee": {
+            "background": "#ECFDF5",
+            "border": "#10B981",
+            "highlight": "#34D399",
+        },  # Emerald
+        "Target": {
+            "background": "#FEE2E2",
+            "border": "#EF4444",
+            "highlight": "#F87171",
+        },  # Red
+        "Source": {
+            "background": "#E0F2FE",
+            "border": "#0EA5E9",
+            "highlight": "#38BDF8",
+        },  # Sky Blue
+        "Parent": {
+            "background": "#FFEDD5",
+            "border": "#F97316",
+            "highlight": "#FB923C",
+        },  # Orange
+        "Child": {
+            "background": "#F0FDFA",
+            "border": "#14B8A6",
+            "highlight": "#2DD4BF",
+        },  # Teal
+        "Override": {
+            "background": "#EDE9FE",
+            "border": "#8B5CF6",
+            "highlight": "#A78BFA",
+        },  # Violet
+        "default": {
+            "background": "#F1F5F9",
+            "border": "#94A3B8",
+            "highlight": "#CBD5E1",
+        },  # Default Slate
     }
     config = colors.get(node_type, colors["default"])
     # Vis-network expects specific keys or hex
     return {
         "background": config["background"],
         "border": config["border"],
-        "highlight": {
-            "background": config["highlight"],
-            "border": config["border"]
-        },
-        "hover": {
-            "background": config["highlight"],
-            "border": config["border"]
-        }
+        "highlight": {"background": config["highlight"], "border": config["border"]},
+        "hover": {"background": config["highlight"], "border": config["border"]},
     }
 
 
 def generate_html_template(
-    nodes: List[Dict],
-    edges: List[Dict],
+    nodes: list[dict[str, str]],
+    edges: list[dict[str, str]],
     title: str,
     layout_type: str = "force",
-    description: str = ""
+    description: str = "",
 ) -> str:
     """
     Generate standalone HTML with vis-network.js visualization.
-    
+
     Args:
         nodes: List of node dictionaries with id, label, group, title, color
         edges: List of edge dictionaries with from, to, label, arrows
         title: Title for the visualization
         layout_type: "force" for force-directed, "hierarchical" for tree layouts
         description: Optional description to show in the header
-    
+
     Returns:
         Complete HTML string
     """
@@ -178,32 +233,31 @@ def generate_html_template(
 
     # Escape user-provided content to prevent XSS
     safe_title = escape_html(title)
-    safe_description = escape_html(description)
 
     # Escape tooltip HTML (vis-network treats title as HTML)
-    safe_nodes: List[Dict[str, Any]] = []
+    safe_nodes: list[dict[str, Any]] = []
     for node in nodes:
         node_copy = dict(node)
         if "title" in node_copy:
             node_copy["title"] = escape_html(node_copy.get("title", ""))
         safe_nodes.append(node_copy)
-    safe_edges: List[Dict[str, Any]] = [dict(edge) for edge in edges]
-    
+    safe_edges: list[dict[str, Any]] = [dict(edge) for edge in edges]
+
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{safe_title} | CodeGraphContext</title>
-    
+
     <!-- Modern Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
+
     <!-- Vis Network Library -->
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    
+
     <style type="text/css">
         :root {{
             --primary: #6366f1;
@@ -225,7 +279,7 @@ def generate_html_template(
         body {{
             font-family: 'Outfit', sans-serif;
             background-color: var(--bg-dark);
-            background-image: 
+            background-image:
                 radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
                 radial-gradient(at 100% 100%, rgba(129, 140, 248, 0.1) 0px, transparent 50%);
             color: var(--text-main);
@@ -549,12 +603,12 @@ def generate_html_template(
             <div class="close-btn" onclick="closePanel()">✕</div>
         </div>
         <div id="node-name" class="node-name">Symbol Name</div>
-        
+
         <div class="info-section">
             <span class="info-label">File Path</span>
             <div id="node-path" class="info-value">/path/to/file.py</div>
         </div>
-        
+
         <div class="info-section">
             <span class="info-label">Context</span>
             <div id="node-context" class="info-value">None</div>
@@ -588,7 +642,7 @@ def generate_html_template(
 
         const container = document.getElementById('mynetwork');
         const data = {{ nodes, edges }};
-        
+
         const options = {{
             nodes: {{
                 shape: 'dot',
@@ -668,27 +722,27 @@ def generate_html_template(
                 const nodeId = params.nodes[0];
                 const node = nodes.get(nodeId);
                 const panel = document.getElementById('info-panel');
-                
+
                 document.getElementById('node-name').textContent = node.label;
                 document.getElementById('node-badge').textContent = node.group;
                 document.getElementById('node-badge').style.backgroundColor = node.color.border + '22';
                 document.getElementById('node-badge').style.color = node.color.border;
                 document.getElementById('node-badge').style.border = `1px solid ${{node.color.border}}`;
-                
+
                 // Parse tooltip for extra info
                 const tooltipText = node.title || "";
                 const lines = tooltipText.split('\\n');
                 let path = "Unknown";
                 let context = "None";
-                
+
                 lines.forEach(l => {{
                     if (l.startsWith('File:')) path = l.replace('File:', '').trim();
                     if (l.startsWith('Line:')) context = 'Line ' + l.replace('Line:', '').trim();
                 }});
-                
+
                 document.getElementById('node-path').textContent = path;
                 document.getElementById('node-context').textContent = context;
-                
+
                 panel.classList.add('active');
 
                 // Visual highlight
@@ -714,21 +768,21 @@ def generate_html_template(
         groups.forEach(group => {{
             const node = nodesData.find(n => n.group === group);
             const color = node?.color?.border || '#94a3b8';
-            
+
             const item = document.createElement('div');
             item.className = 'legend-item';
             item.innerHTML = `
                 <div class="legend-color" style="background: ${{color}}; color: ${{color}}"></div>
                 <span>${{group}}</span>
             `;
-            
+
             item.onclick = () => {{
                 // Highlight nodes of this group
                 nodes.forEach(n => {{
                     nodes.update({{id: n.id, opacity: n.group === group ? 1 : 0.15}});
                 }});
             }};
-            
+
             legendContainer.appendChild(item);
         }});
 
@@ -740,7 +794,7 @@ def generate_html_template(
                 nodes.forEach(n => nodes.update({{id: n.id, opacity: 1}}));
                 return;
             }}
-            
+
             nodes.forEach(n => {{
                 const matches = n.label.toLowerCase().includes(term);
                 nodes.update({{id: n.id, opacity: matches ? 1 : 0.1}});
@@ -754,18 +808,18 @@ def generate_html_template(
 
 
 def visualize_call_graph(
-    results: List[Dict],
+    results: list[dict[str, str]],
     function_name: str,
-    direction: Literal["outgoing", "incoming"] = "outgoing"
-) -> Optional[str]:
+    direction: Literal["outgoing", "incoming"] = "outgoing",
+) -> str | None:
     """
     Visualize function call relationships (calls or callers).
-    
+
     Args:
         results: List of call results from CodeFinder
         function_name: The central function name
         direction: "outgoing" for calls, "incoming" for callers
-    
+
     Returns:
         Path to generated HTML file, or None if no results
     """
@@ -780,15 +834,17 @@ def visualize_call_graph(
     # Add central function node
     central_id = f"central_{function_name}"
     central_color = get_node_color("Source" if direction == "outgoing" else "Target")
-    nodes.append({
-        "id": central_id,
-        "label": function_name,
-        "group": "Source" if direction == "outgoing" else "Target",
-        "title": f"{'Caller' if direction == 'outgoing' else 'Called'}: {function_name}",
-        "color": central_color,
-        "size": 30,
-        "font": {"size": 16, "color": "#ffffff"}
-    })
+    nodes.append(
+        {
+            "id": central_id,
+            "label": function_name,
+            "group": "Source" if direction == "outgoing" else "Target",
+            "title": f"{'Caller' if direction == 'outgoing' else 'Called'}: {function_name}",
+            "color": central_color,
+            "size": 30,
+            "font": {"size": 16, "color": "#ffffff"},
+        }
+    )
     seen_nodes.add(central_id)
 
     for idx, result in enumerate(results):
@@ -812,50 +868,48 @@ def visualize_call_graph(
 
         if node_id not in seen_nodes:
             color = get_node_color(node_type)
-            nodes.append({
-                "id": node_id,
-                "label": func_name,
-                "group": node_type,
-                "title": f"{func_name}\nFile: {path}\nLine: {line_num}",
-                "color": color
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "label": func_name,
+                    "group": node_type,
+                    "title": f"{func_name}\nFile: {path}\nLine: {line_num}",
+                    "color": color,
+                }
+            )
             seen_nodes.add(node_id)
 
         if direction == "outgoing":
-            edges.append({
-                "from": central_id,
-                "to": node_id,
-                "label": "calls",
-                "arrows": "to"
-            })
+            edges.append(
+                {"from": central_id, "to": node_id, "label": "calls", "arrows": "to"}
+            )
         else:
-            edges.append({
-                "from": node_id,
-                "to": central_id,
-                "label": "calls",
-                "arrows": "to"
-            })
+            edges.append(
+                {"from": node_id, "to": central_id, "label": "calls", "arrows": "to"}
+            )
 
     title = f"{'Outgoing Calls' if direction == 'outgoing' else 'Incoming Callers'}: {function_name}"
     description = f"Showing {len(results)} {'called functions' if direction == 'outgoing' else 'caller functions'}"
-    
-    html = generate_html_template(nodes, edges, title, layout_type="force", description=description)
-    return save_and_open_visualization(html, f"cgc_{'calls' if direction == 'outgoing' else 'callers'}")
+
+    html = generate_html_template(
+        nodes, edges, title, layout_type="force", description=description
+    )
+    return save_and_open_visualization(
+        html, f"cgc_{'calls' if direction == 'outgoing' else 'callers'}"
+    )
 
 
 def visualize_call_chain(
-    results: List[Dict],
-    from_func: str,
-    to_func: str
+    results: List[Dict], from_func: str, to_func: str
 ) -> Optional[str]:
     """
     Visualize call chain between two functions.
-    
+
     Args:
         results: List of chain results, each containing function_chain
         from_func: Starting function name
         to_func: Target function name
-    
+
     Returns:
         Path to generated HTML file, or None if no results
     """
@@ -869,14 +923,14 @@ def visualize_call_chain(
 
     for chain_idx, chain in enumerate(results):
         functions = chain.get("function_chain", [])
-        
+
         for idx, func in enumerate(functions):
             func_name = func.get("name", f"unknown_{idx}")
             path = func.get("path", "")
             line_num = func.get("line_number", "")
-            
+
             node_id = f"chain{chain_idx}_{func_name}_{idx}"
-            
+
             # Determine node type based on position
             if idx == 0:
                 node_type = "Source"
@@ -887,52 +941,50 @@ def visualize_call_chain(
 
             if node_id not in seen_nodes:
                 color = get_node_color(node_type)
-                nodes.append({
-                    "id": node_id,
-                    "label": func_name,
-                    "group": node_type,
-                    "title": f"{func_name}\nFile: {path}\nLine: {line_num}",
-                    "color": color,
-                    "level": idx  # For hierarchical layout
-                })
+                nodes.append(
+                    {
+                        "id": node_id,
+                        "label": func_name,
+                        "group": node_type,
+                        "title": f"{func_name}\nFile: {path}\nLine: {line_num}",
+                        "color": color,
+                        "level": idx,  # For hierarchical layout
+                    }
+                )
                 seen_nodes.add(node_id)
 
             # Add edge to next function in chain
             if idx < len(functions) - 1:
                 next_func = functions[idx + 1]
-                next_name = next_func.get("name", f"unknown_{idx+1}")
-                next_id = f"chain{chain_idx}_{next_name}_{idx+1}"
-                edges.append({
-                    "from": node_id,
-                    "to": next_id,
-                    "label": "→",
-                    "arrows": "to"
-                })
+                next_name = next_func.get("name", f"unknown_{idx + 1}")
+                next_id = f"chain{chain_idx}_{next_name}_{idx + 1}"
+                edges.append(
+                    {"from": node_id, "to": next_id, "label": "→", "arrows": "to"}
+                )
 
     title = f"Call Chain: {from_func} → {to_func}"
     description = f"Found {len(results)} path(s)"
-    
-    html = generate_html_template(nodes, edges, title, layout_type="hierarchical", description=description)
+
+    html = generate_html_template(
+        nodes, edges, title, layout_type="hierarchical", description=description
+    )
     return save_and_open_visualization(html, "cgc_chain")
 
 
-def visualize_dependencies(
-    results: Dict,
-    module_name: str
-) -> Optional[str]:
+def visualize_dependencies(results: Dict, module_name: str) -> Optional[str]:
     """
     Visualize module dependencies (imports and importers).
-    
+
     Args:
         results: Dict with 'importers' and 'imports' lists
         module_name: The central module name
-    
+
     Returns:
         Path to generated HTML file, or None if no results
     """
     importers = results.get("importers", [])
     imports = results.get("imports", [])
-    
+
     if not importers and not imports:
         console.print("[yellow]No dependency information to visualize.[/yellow]")
         return None
@@ -944,14 +996,16 @@ def visualize_dependencies(
     # Central module node
     central_id = f"central_{module_name}"
     color = get_node_color("Module")
-    nodes.append({
-        "id": central_id,
-        "label": module_name,
-        "group": "Module",
-        "title": f"Module: {module_name}",
-        "color": color,
-        "size": 30
-    })
+    nodes.append(
+        {
+            "id": central_id,
+            "label": module_name,
+            "group": "Module",
+            "title": f"Module: {module_name}",
+            "color": color,
+            "size": 30,
+        }
+    )
     seen_nodes.add(central_id)
 
     # Files that import this module
@@ -959,74 +1013,71 @@ def visualize_dependencies(
         path = imp.get("importer_file_path", f"file_{idx}")
         file_name = Path(path).name if path else f"file_{idx}"
         node_id = f"importer_{idx}"
-        
+
         if node_id not in seen_nodes:
             color = get_node_color("File")
-            nodes.append({
-                "id": node_id,
-                "label": file_name,
-                "group": "Importer",
-                "title": f"File: {path}\nLine: {imp.get('import_line_number', '')}",
-                "color": color
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "label": file_name,
+                    "group": "Importer",
+                    "title": f"File: {path}\nLine: {imp.get('import_line_number', '')}",
+                    "color": color,
+                }
+            )
             seen_nodes.add(node_id)
-            
-        edges.append({
-            "from": node_id,
-            "to": central_id,
-            "label": "imports",
-            "arrows": "to"
-        })
+
+        edges.append(
+            {"from": node_id, "to": central_id, "label": "imports", "arrows": "to"}
+        )
 
     # Modules that this module imports
     for idx, imp in enumerate(imports):
         imported_module = imp.get("imported_module", f"module_{idx}")
         alias = imp.get("import_alias", "")
         node_id = f"imported_{idx}"
-        
+
         if node_id not in seen_nodes:
             color = get_node_color("Package")
-            nodes.append({
-                "id": node_id,
-                "label": imported_module + (f" as {alias}" if alias else ""),
-                "group": "Imported",
-                "title": f"Module: {imported_module}",
-                "color": color
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "label": imported_module + (f" as {alias}" if alias else ""),
+                    "group": "Imported",
+                    "title": f"Module: {imported_module}",
+                    "color": color,
+                }
+            )
             seen_nodes.add(node_id)
-            
-        edges.append({
-            "from": central_id,
-            "to": node_id,
-            "label": "imports",
-            "arrows": "to"
-        })
+
+        edges.append(
+            {"from": central_id, "to": node_id, "label": "imports", "arrows": "to"}
+        )
 
     title = f"Dependencies: {module_name}"
     description = f"{len(importers)} importer(s), {len(imports)} import(s)"
-    
-    html = generate_html_template(nodes, edges, title, layout_type="force", description=description)
+
+    html = generate_html_template(
+        nodes, edges, title, layout_type="force", description=description
+    )
     return save_and_open_visualization(html, "cgc_deps")
 
 
-def visualize_inheritance_tree(
-    results: Dict,
-    class_name: str
-) -> Optional[str]:
+def visualize_inheritance_tree(results: Dict, class_name: str) -> Optional[str]:
     """
     Visualize class inheritance hierarchy.
-    
+
     Args:
         results: Dict with 'parent_classes', 'child_classes', and 'methods'
         class_name: The central class name
-    
+
     Returns:
         Path to generated HTML file, or None if no results
     """
     parents = results.get("parent_classes", [])
     children = results.get("child_classes", [])
     methods = results.get("methods", [])
-    
+
     if not parents and not children:
         console.print("[yellow]No inheritance hierarchy to visualize.[/yellow]")
         return None
@@ -1041,16 +1092,18 @@ def visualize_inheritance_tree(
     method_list = ", ".join([m.get("method_name", "") for m in methods[:5]])
     if len(methods) > 5:
         method_list += f"... (+{len(methods) - 5} more)"
-    
-    nodes.append({
-        "id": central_id,
-        "label": class_name,
-        "group": "Class",
-        "title": f"Class: {class_name}\nMethods: {method_list or 'None'}",
-        "color": color,
-        "size": 30,
-        "level": 1  # Middle level
-    })
+
+    nodes.append(
+        {
+            "id": central_id,
+            "label": class_name,
+            "group": "Class",
+            "title": f"Class: {class_name}\nMethods: {method_list or 'None'}",
+            "color": color,
+            "size": 30,
+            "level": 1,  # Middle level
+        }
+    )
     seen_nodes.add(central_id)
 
     # Parent classes (above)
@@ -1058,69 +1111,66 @@ def visualize_inheritance_tree(
         parent_name = parent.get("parent_class", f"Parent_{idx}")
         path = parent.get("parent_file_path", "")
         node_id = f"parent_{idx}"
-        
+
         if node_id not in seen_nodes:
             color = get_node_color("Parent")
-            nodes.append({
-                "id": node_id,
-                "label": parent_name,
-                "group": "Parent",
-                "title": f"Parent: {parent_name}\nFile: {path}",
-                "color": color,
-                "level": 0  # Top level
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "label": parent_name,
+                    "group": "Parent",
+                    "title": f"Parent: {parent_name}\nFile: {path}",
+                    "color": color,
+                    "level": 0,  # Top level
+                }
+            )
             seen_nodes.add(node_id)
-            
-        edges.append({
-            "from": central_id,
-            "to": node_id,
-            "label": "extends",
-            "arrows": "to"
-        })
+
+        edges.append(
+            {"from": central_id, "to": node_id, "label": "extends", "arrows": "to"}
+        )
 
     # Child classes (below)
     for idx, child in enumerate(children):
         child_name = child.get("child_class", f"Child_{idx}")
         path = child.get("child_file_path", "")
         node_id = f"child_{idx}"
-        
+
         if node_id not in seen_nodes:
             color = get_node_color("Child")
-            nodes.append({
-                "id": node_id,
-                "label": child_name,
-                "group": "Child",
-                "title": f"Child: {child_name}\nFile: {path}",
-                "color": color,
-                "level": 2  # Bottom level
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "label": child_name,
+                    "group": "Child",
+                    "title": f"Child: {child_name}\nFile: {path}",
+                    "color": color,
+                    "level": 2,  # Bottom level
+                }
+            )
             seen_nodes.add(node_id)
-            
-        edges.append({
-            "from": node_id,
-            "to": central_id,
-            "label": "extends",
-            "arrows": "to"
-        })
+
+        edges.append(
+            {"from": node_id, "to": central_id, "label": "extends", "arrows": "to"}
+        )
 
     title = f"Class Hierarchy: {class_name}"
     description = f"{len(parents)} parent(s), {len(children)} child(ren), {len(methods)} method(s)"
-    
-    html = generate_html_template(nodes, edges, title, layout_type="hierarchical", description=description)
+
+    html = generate_html_template(
+        nodes, edges, title, layout_type="hierarchical", description=description
+    )
     return save_and_open_visualization(html, "cgc_tree")
 
 
-def visualize_overrides(
-    results: List[Dict],
-    function_name: str
-) -> Optional[str]:
+def visualize_overrides(results: List[Dict], function_name: str) -> Optional[str]:
     """
     Visualize function/method overrides across classes.
-    
+
     Args:
         results: List of override results with class_name and function info
         function_name: The method name being overridden
-    
+
     Returns:
         Path to generated HTML file, or None if no results
     """
@@ -1135,14 +1185,16 @@ def visualize_overrides(
     # Central method name node
     central_id = f"method_{function_name}"
     color = get_node_color("Function")
-    nodes.append({
-        "id": central_id,
-        "label": f"Method: {function_name}",
-        "group": "Method",
-        "title": f"Method: {function_name}\n{len(results)} implementation(s)",
-        "color": color,
-        "size": 30
-    })
+    nodes.append(
+        {
+            "id": central_id,
+            "label": f"Method: {function_name}",
+            "group": "Method",
+            "title": f"Method: {function_name}\n{len(results)} implementation(s)",
+            "color": color,
+            "size": 30,
+        }
+    )
     seen_nodes.add(central_id)
 
     # Classes implementing this method
@@ -1151,45 +1203,44 @@ def visualize_overrides(
         path = res.get("class_file_path", "")
         line_num = res.get("function_line_number", "")
         node_id = f"class_{idx}"
-        
+
         if node_id not in seen_nodes:
             color = get_node_color("Override")
-            nodes.append({
-                "id": node_id,
-                "label": class_name,
-                "group": "Class",
-                "title": f"Class: {class_name}\nFile: {path}\nLine: {line_num}",
-                "color": color
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "label": class_name,
+                    "group": "Class",
+                    "title": f"Class: {class_name}\nFile: {path}\nLine: {line_num}",
+                    "color": color,
+                }
+            )
             seen_nodes.add(node_id)
-            
-        edges.append({
-            "from": node_id,
-            "to": central_id,
-            "label": "implements",
-            "arrows": "to"
-        })
+
+        edges.append(
+            {"from": node_id, "to": central_id, "label": "implements", "arrows": "to"}
+        )
 
     title = f"Overrides: {function_name}"
     description = f"{len(results)} implementation(s) found"
-    
-    html = generate_html_template(nodes, edges, title, layout_type="force", description=description)
+
+    html = generate_html_template(
+        nodes, edges, title, layout_type="force", description=description
+    )
     return save_and_open_visualization(html, "cgc_overrides")
 
 
 def visualize_search_results(
-    results: List[Dict],
-    search_term: str,
-    search_type: str = "search"
+    results: List[Dict], search_term: str, search_type: str = "search"
 ) -> Optional[str]:
     """
     Visualize search/find results as a cluster of nodes.
-    
+
     Args:
         results: List of search results with name, type, path, etc.
         search_term: The search term used
         search_type: Type of search (name, pattern, type)
-    
+
     Returns:
         Path to generated HTML file, or None if no results
     """
@@ -1203,14 +1254,16 @@ def visualize_search_results(
 
     # Central search node
     central_id = "search_center"
-    nodes.append({
-        "id": central_id,
-        "label": f"Search: {search_term}",
-        "group": "Search",
-        "title": f"Search term: {search_term}\n{len(results)} result(s)",
-        "color": {"background": "#ff4081", "border": "#c51162"},
-        "size": 35
-    })
+    nodes.append(
+        {
+            "id": central_id,
+            "label": f"Search: {search_term}",
+            "group": "Search",
+            "title": f"Search term: {search_term}\n{len(results)} result(s)",
+            "color": {"background": "#ff4081", "border": "#c51162"},
+            "size": 35,
+        }
+    )
     seen_nodes.add(central_id)
 
     # Group results by type
@@ -1220,60 +1273,64 @@ def visualize_search_results(
         path = res.get("path", "")
         line_num = res.get("line_number", "")
         is_dep = res.get("is_dependency", False)
-        
+
         node_id = f"result_{idx}"
-        
+
         if node_id not in seen_nodes:
             color = get_node_color(node_type if not is_dep else "Package")
-            nodes.append({
-                "id": node_id,
-                "label": name,
-                "group": node_type,
-                "title": f"{node_type}: {name}\nFile: {path}\nLine: {line_num}",
-                "color": color
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "label": name,
+                    "group": node_type,
+                    "title": f"{node_type}: {name}\nFile: {path}\nLine: {line_num}",
+                    "color": color,
+                }
+            )
             seen_nodes.add(node_id)
-            
-        edges.append({
-            "from": central_id,
-            "to": node_id,
-            "label": "matches",
-            "arrows": "to",
-            "dashes": True
-        })
+
+        edges.append(
+            {
+                "from": central_id,
+                "to": node_id,
+                "label": "matches",
+                "arrows": "to",
+                "dashes": True,
+            }
+        )
 
     title = f"Search Results: {search_term}"
     description = f"Found {len(results)} match(es) for '{search_term}'"
-    
-    html = generate_html_template(nodes, edges, title, layout_type="force", description=description)
+
+    html = generate_html_template(
+        nodes, edges, title, layout_type="force", description=description
+    )
     return save_and_open_visualization(html, f"cgc_find_{search_type}")
 
 
 def _safe_json_dumps(obj: Any, indent: int = 2) -> str:
     """Safely serialize object to JSON, handling non-serializable types."""
+
     def default_handler(o):
         try:
             return str(o)
         except Exception:
             return "<non-serializable>"
-    
+
     try:
         return json.dumps(obj, indent=indent, default=default_handler)
     except Exception:
         return "{}"
 
 
-def visualize_cypher_results(
-    records: List[Dict],
-    query: str
-) -> Optional[str]:
+def visualize_cypher_results(records: List[Dict], query: str) -> Optional[str]:
     """
     Visualize raw Cypher query results.
-    
+
     Args:
         records: List of records returned from Cypher query
         query: The original Cypher query
-    
+
     Returns:
         Path to generated HTML file, or None if no results
     """
@@ -1292,36 +1349,50 @@ def visualize_cypher_results(
                 node_id = value.get("id", value.get("name", f"node_{len(seen_nodes)}"))
                 if str(node_id) not in seen_nodes:
                     labels = value.get("labels", [key])
-                    label = labels[0] if isinstance(labels, list) and labels else str(labels)
+                    label = (
+                        labels[0]
+                        if isinstance(labels, list) and labels
+                        else str(labels)
+                    )
                     name = value.get("name", str(node_id))
-                    
+
                     color = get_node_color(label)
-                    nodes.append({
-                        "id": str(node_id),
-                        "label": str(name) if name else str(node_id),
-                        "group": label,
-                        "title": _safe_json_dumps(value),
-                        "color": color
-                    })
+                    nodes.append(
+                        {
+                            "id": str(node_id),
+                            "label": str(name) if name else str(node_id),
+                            "group": label,
+                            "title": _safe_json_dumps(value),
+                            "color": color,
+                        }
+                    )
                     seen_nodes.add(str(node_id))
             elif isinstance(value, list):
                 # Could be a path or list of nodes
                 for item in value:
                     if isinstance(item, dict):
-                        node_id = item.get("id", item.get("name", f"node_{len(seen_nodes)}"))
+                        node_id = item.get(
+                            "id", item.get("name", f"node_{len(seen_nodes)}")
+                        )
                         if str(node_id) not in seen_nodes:
                             name = item.get("name", str(node_id))
                             labels = item.get("labels", ["Node"])
-                            label = labels[0] if isinstance(labels, list) and labels else "Node"
-                            
+                            label = (
+                                labels[0]
+                                if isinstance(labels, list) and labels
+                                else "Node"
+                            )
+
                             color = get_node_color(label)
-                            nodes.append({
-                                "id": str(node_id),
-                                "label": str(name) if name else str(node_id),
-                                "group": label,
-                                "title": _safe_json_dumps(item),
-                                "color": color
-                            })
+                            nodes.append(
+                                {
+                                    "id": str(node_id),
+                                    "label": str(name) if name else str(node_id),
+                                    "group": label,
+                                    "title": _safe_json_dumps(item),
+                                    "color": color,
+                                }
+                            )
                             seen_nodes.add(str(node_id))
 
     # NOTE: We intentionally do not infer edges when the Cypher query doesn't
@@ -1332,36 +1403,40 @@ def visualize_cypher_results(
     # Truncate query for description
     short_query = query[:50] + "..." if len(query) > 50 else query
     description = f"Query: {short_query}"
-    
-    html = generate_html_template(nodes, edges, title, layout_type="force", description=description)
+
+    html = generate_html_template(
+        nodes, edges, title, layout_type="force", description=description
+    )
     return save_and_open_visualization(html, "cgc_query")
 
 
-def save_and_open_visualization(html_content: str, prefix: str = "cgc_viz") -> Optional[str]:
+def save_and_open_visualization(
+    html_content: str, prefix: str = "cgc_viz"
+) -> Optional[str]:
     """
     Save HTML content to file and open in browser.
-    
+
     Args:
         html_content: The complete HTML string
         prefix: Filename prefix
-    
+
     Returns:
         Path to the saved file, or None if saving failed
     """
     viz_dir = get_visualization_dir()
     filename = generate_filename(prefix)
     filepath = viz_dir / filename
-    
+
     try:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(html_content)
     except (IOError, OSError) as e:
         console.print(f"[red]Error saving visualization: {e}[/red]")
         return None
-    
+
     console.print(f"[green]✓ Visualization saved:[/green] {filepath}")
     console.print("[dim]Opening in browser...[/dim]")
-    
+
     # Open in default browser - use proper file URI format
     try:
         # Convert to proper file URI (works on Windows and Unix)
@@ -1370,22 +1445,22 @@ def save_and_open_visualization(html_content: str, prefix: str = "cgc_viz") -> O
     except Exception as e:
         console.print(f"[yellow]Could not open browser automatically: {e}[/yellow]")
         console.print(f"[dim]Open this file manually: {filepath}[/dim]")
-    
+
     return str(filepath)
 
 
 def check_visual_flag(ctx: Any, local_visual: bool = False) -> bool:
     """
     Check if visual mode is enabled (either globally or locally).
-    
+
     Args:
         ctx: Typer context object
         local_visual: Local --visual flag value
-    
+
     Returns:
         True if visualization should be used
     """
     global_visual = False
-    if ctx and hasattr(ctx, 'obj') and ctx.obj:
+    if ctx and hasattr(ctx, "obj") and ctx.obj:
         global_visual = ctx.obj.get("visual", False)
     return local_visual or global_visual
