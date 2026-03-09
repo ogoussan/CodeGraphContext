@@ -121,7 +121,7 @@ def visualize_graph_query(db_manager, **args) -> Dict[str, Any]:
                                 "arrows": "to"
                             })
 
-            # Generate HTML
+            # Generate HTML with children truncation
             html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -130,21 +130,177 @@ def visualize_graph_query(db_manager, **args) -> Dict[str, Any]:
   <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style type="text/css">
     #mynetwork {{ width: 100%; height: 100vh; border: 1px solid lightgray; }}
+    .controls {{
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(30, 41, 59, 0.9);
+        backdrop-filter: blur(12px);
+        padding: 16px 20px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 1000;
+        color: #f8fafc;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 14px;
+    }}
+    .controls label {{ display: block; margin-bottom: 8px; font-weight: 600; }}
+    .controls input[type="range"] {{
+        width: 180px;
+        cursor: pointer;
+    }}
+    .controls .value {{
+        display: inline-block;
+        width: 40px;
+        text-align: right;
+        font-weight: 700;
+        color: #6366f1;
+    }}
+    .controls .hint {{
+        font-size: 11px;
+        color: #94a3b8;
+        margin-top: 8px;
+    }}
   </style>
 </head>
 <body>
+  <div class="controls">
+    <label>Max Children per Node: <span class="value" id="maxChildrenValue">10</span></label>
+    <input type="range" id="maxChildrenSlider" min="1" max="50" value="10">
+    <div class="hint">Drag slider to adjust. Click "+N more" to expand.</div>
+  </div>
   <div id="mynetwork"></div>
   <script type="text/javascript">
-    var nodes = new vis.DataSet({json.dumps(data_nodes)});
-    var edges = new vis.DataSet({json.dumps(data_edges)});
-    var container = document.getElementById('mynetwork');
-    var data = {{ nodes: nodes, edges: edges }};
-    var options = {{
+    const originalNodes = {json.dumps(data_nodes)};
+    const originalEdges = {json.dumps(data_edges)};
+    
+    let maxChildren = 10;
+    let nodes = new vis.DataSet();
+    let edges = new vis.DataSet();
+    
+    function getRestNodeColor() {{
+        return {{
+            background: '#6B7280',
+            border: '#4B5563',
+            highlight: {{ background: '#9CA3AF', border: '#6B7280' }}
+        }};
+    }}
+    
+    function truncateGraph() {{
+        const childrenByParent = {{}};
+        
+        originalEdges.forEach(e => {{
+            const from = String(e.from);
+            if (!childrenByParent[from]) childrenByParent[from] = [];
+            childrenByParent[from].push(e);
+        }});
+        
+        const filteredNodes = [];
+        const filteredEdges = [];
+        const addedNodes = new Set();
+        
+        originalNodes.forEach(n => {{
+            const id = String(n.id);
+            filteredNodes.push({{
+                id: id,
+                label: n.label,
+                group: n.group,
+                title: n.title,
+                color: n.color,
+                shape: n.shape || 'dot'
+            }});
+            addedNodes.add(id);
+        }});
+        
+        Object.entries(childrenByParent).forEach(([parentId, childEdges]) => {{
+            const parent = String(parentId);
+            const total = childEdges.length;
+            
+            if (total > maxChildren) {{
+                const shown = childEdges.slice(0, maxChildren);
+                const remaining = total - maxChildren;
+                
+                shown.forEach(e => {{
+                    filteredEdges.push({{
+                        from: String(e.from),
+                        to: String(e.to),
+                        label: e.label,
+                        arrows: e.arrows || 'to'
+                    }});
+                }});
+                
+                const restId = 'rest_' + parent;
+                if (!addedNodes.has(restId)) {{
+                    filteredNodes.push({{
+                        id: restId,
+                        label: '+' + remaining + ' more',
+                        group: 'Rest',
+                        shape: 'diamond',
+                        color: getRestNodeColor(),
+                        font: {{ color: '#ffffff', size: 12 }}
+                    }});
+                    addedNodes.add(restId);
+                }}
+                
+                filteredEdges.push({{
+                    from: parent,
+                    to: restId,
+                    label: 'more',
+                    arrows: 'to',
+                    color: {{ color: '#6B7280' }},
+                    dashes: true
+                }});
+            }} else {{
+                childEdges.forEach(e => {{
+                    filteredEdges.push({{
+                        from: String(e.from),
+                        to: String(e.to),
+                        label: e.label,
+                        arrows: e.arrows || 'to'
+                    }});
+                }});
+            }}
+        }});
+        
+        nodes.clear();
+        nodes.add(filteredNodes);
+        edges.clear();
+        edges.add(filteredEdges);
+        
+        if (window.network) {{
+            window.network.fit();
+        }}
+    }}
+    
+    const container = document.getElementById('mynetwork');
+    const data = {{ nodes: nodes, edges: edges }};
+    const options = {{
         nodes: {{ shape: 'dot', size: 16 }},
         physics: {{ stabilization: false }},
         layout: {{ improvedLayout: false }}
     }};
-    var network = new vis.Network(container, data, options);
+    window.network = new vis.Network(container, data, options);
+    
+    truncateGraph();
+    
+    document.getElementById('maxChildrenSlider').addEventListener('input', function(e) {{
+        maxChildren = parseInt(e.target.value);
+        document.getElementById('maxChildrenValue').textContent = maxChildren;
+        truncateGraph();
+    }});
+    
+    window.network.on('click', function(params) {{
+        if (params.nodes.length > 0) {{
+            const nodeId = params.nodes[0];
+            if (String(nodeId).startsWith('rest_')) {{
+                const parentId = String(nodeId).replace('rest_', '');
+                maxChildren += 10;
+                document.getElementById('maxChildrenSlider').value = maxChildren;
+                document.getElementById('maxChildrenValue').textContent = maxChildren;
+                truncateGraph();
+            }}
+        }}
+    }});
   </script>
 </body>
 </html>

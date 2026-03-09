@@ -262,7 +262,7 @@ def cypher_helper_visual(query: str):
 
 import webbrowser
 
-def visualize_helper(query: str):
+def visualize_helper(query: str, limit: int = 100):
     """Generates a visualization."""
     services = _initialize_services()
     if not all(services):
@@ -272,7 +272,7 @@ def visualize_helper(query: str):
     
     # Check if FalkorDB
     if "FalkorDB" in db_manager.__class__.__name__:
-        _visualize_falkordb(db_manager)
+        _visualize_falkordb(db_manager, limit)
     else:
         try:
             encoded_query = urllib.parse.quote(query)
@@ -285,15 +285,15 @@ def visualize_helper(query: str):
         finally:
             db_manager.close_driver()
 
-def _visualize_falkordb(db_manager):
-    console.print("[dim]Generating FalkorDB visualization (showing up to 500 relationships)...[/dim]")
+def _visualize_falkordb(db_manager, limit: int = 100):
+    console.print(f"[dim]Generating FalkorDB visualization (showing up to {limit} relationships)...[/dim]")
     try:
         data_nodes = []
         data_edges = []
         
         with db_manager.get_driver().session() as session:
             # Fetch nodes and edges
-            q = "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 500"
+            q = f"MATCH (n)-[r]->(m) RETURN n, r, m LIMIT {limit}"
             result = session.run(q)
             
             seen_nodes = set()

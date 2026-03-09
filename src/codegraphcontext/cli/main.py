@@ -955,15 +955,22 @@ def delete(
         delete_helper(path)
 
 @app.command()
-def visualize(query: Optional[str] = typer.Argument(None, help="The Cypher query to visualize.")):
+def visualize(
+    query: Optional[str] = typer.Argument(None, help="The Cypher query to visualize."),
+    limit: int = typer.Option(100, "--limit", "-l", help="Maximum number of nodes/relationships to return")
+):
     """
     Generates a URL to visualize a Cypher query in the Neo4j Browser.
     If no query is provided, a default query will be used.
+    
+    Examples:
+        cgc visualize
+        cgc visualize "MATCH (n) RETURN n" --limit 50
     """
     if query is None:
         query = "MATCH p=()-->() RETURN p"
     _load_credentials()
-    visualize_helper(query)
+    visualize_helper(query, limit)
 
 @app.command("list")
 def list_repositories():

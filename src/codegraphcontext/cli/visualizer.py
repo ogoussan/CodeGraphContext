@@ -558,6 +558,45 @@ def generate_html_template(
             z-index: 800;
         }}
 
+        /* --- Truncation Controls --- */
+        .truncation-controls {{
+            position: fixed;
+            top: 90px;
+            right: 20px;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            z-index: 1000;
+            width: 200px;
+        }}
+        .truncation-label {{
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }}
+        .truncation-slider {{
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }}
+        .truncation-value {{
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 4px;
+        }}
+        .truncation-hint {{
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            margin-top: 6px;
+            text-align: center;
+        }}
+
         .close-btn {{
             cursor: pointer;
             color: var(--text-dim);
@@ -620,6 +659,13 @@ def generate_html_template(
     <div class="search-container">
         <div class="legend-title" style="margin-bottom: 4px;">Quick Search</div>
         <input type="text" id="node-search" class="search-input" placeholder="Find symbol...">
+    </div>
+
+    <div class="truncation-controls">
+        <div class="truncation-label">Max Children</div>
+        <input type="range" id="maxChildrenSlider" class="truncation-slider" min="1" max="50" value="10">
+        <div class="truncation-value" id="maxChildrenValue">10</div>
+        <div class="truncation-hint">Click "+N more" to expand</div>
     </div>
 
     <div id="mynetwork"></div>
@@ -712,14 +758,126 @@ def generate_html_template(
 
         const network = new vis.Network(container, data, options);
 
-        // Sidebar logic
-        function closePanel() {{
-            document.getElementById('info-panel').classList.remove('active');
+        // Children truncation logic
+        let maxChildren = 10;
+        
+        function getRestNodeColor() {{
+            return {{
+                background: '#6B7280',
+                border: '#4B5563',
+                highlight: {{ background: '#9CA3AF', border: '#6B7280' }}
+            }};
         }}
-
+        
+        function truncateGraph() {{
+            const childrenByParent = {{}};
+            
+            edgesData.forEach(e => {{
+                const from = String(e.from);
+                if (!childrenByParent[from]) childrenByParent[from] = [];
+                childrenByParent[from].push(e);
+            }});
+            
+            const filteredNodes = [];
+            const filteredEdges = [];
+            const addedNodes = new Set();
+            
+            nodesData.forEach(n => {{
+                const id = String(n.id);
+                filteredNodes.push({{
+                    id: id,
+                    label: n.label,
+                    group: n.group,
+                    title: n.title,
+                    color: n.color,
+                    shape: n.shape || 'dot',
+                    size: n.size
+                }});
+                addedNodes.add(id);
+            }});
+            
+            Object.entries(childrenByParent).forEach(([parentId, childEdges]) => {{
+                const parent = String(parentId);
+                const total = childEdges.length;
+                
+                if (total > maxChildren) {{
+                    const shown = childEdges.slice(0, maxChildren);
+                    const remaining = total - maxChildren;
+                    
+                    shown.forEach(e => {{
+                        filteredEdges.push({{
+                            from: String(e.from),
+                            to: String(e.to),
+                            label: e.label,
+                            arrows: e.arrows || 'to'
+                        }});
+                    }});
+                    
+                    const restId = 'rest_' + parent;
+                    if (!addedNodes.has(restId)) {{
+                        filteredNodes.push({{
+                            id: restId,
+                            label: '+' + remaining + ' more',
+                            group: 'Rest',
+                            shape: 'diamond',
+                            color: getRestNodeColor(),
+                            font: {{ color: '#ffffff', size: 12 }}
+                        }});
+                        addedNodes.add(restId);
+                    }}
+                    
+                    filteredEdges.push({{
+                        from: parent,
+                        to: restId,
+                        label: 'more',
+                        arrows: 'to',
+                        color: {{ color: '#6B7280' }},
+                        dashes: true
+                    }});
+                }} else {{
+                    childEdges.forEach(e => {{
+                        filteredEdges.push({{
+                            from: String(e.from),
+                            to: String(e.to),
+                            label: e.label,
+                            arrows: e.arrows || 'to'
+                        }});
+                    }});
+                }}
+            }});
+            
+            nodes.clear();
+            nodes.add(filteredNodes);
+            edges.clear();
+            edges.add(filteredEdges);
+            
+            network.fit();
+        }}
+        
+        truncateGraph();
+        
+        document.getElementById('maxChildrenSlider').addEventListener('input', function(e) {{
+            maxChildren = parseInt(e.target.value);
+            document.getElementById('maxChildrenValue').textContent = maxChildren;
+            truncateGraph();
+        }});
+        
+        // Combined click handler for rest nodes and info panel
         network.on('click', function(params) {{
             if (params.nodes.length > 0) {{
                 const nodeId = params.nodes[0];
+                
+                // Handle rest node click - expand
+                if (String(nodeId).startsWith('rest_')) {{
+                    const parentId = String(nodeId).replace('rest_', '');
+                    maxChildren += 10;
+                    document.getElementById('maxChildrenSlider').value = maxChildren;
+                    document.getElementById('maxChildrenValue').textContent = maxChildren;
+                    truncateGraph();
+                    return;
+                }}
+                
+                // Info panel logic for regular nodes
                 const node = nodes.get(nodeId);
                 const panel = document.getElementById('info-panel');
 
@@ -731,7 +889,7 @@ def generate_html_template(
 
                 // Parse tooltip for extra info
                 const tooltipText = node.title || "";
-                const lines = tooltipText.split('\\n');
+                const lines = tooltipText.split('\n');
                 let path = "Unknown";
                 let context = "None";
 
@@ -761,6 +919,11 @@ def generate_html_template(
                 }});
             }}
         }});
+
+        // Sidebar logic
+        function closePanel() {{
+            document.getElementById('info-panel').classList.remove('active');
+        }}
 
         // Build legend from unique groups
         const groups = [...new Set(nodesData.map(n => n.group))];
