@@ -1057,7 +1057,7 @@ def find_by_name(
     ctx: typer.Context,
     name: str = typer.Argument(..., help="Exact name to search for"),
     type: Optional[str] = typer.Option(None, "--type", "-t", help="Filter by type (function, class, file, module)"),
-    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file or folder path"),
     visual: bool = typer.Option(False, "--visual", "--viz", "-V", help="Show results as interactive graph visualization")
 ):
     """
@@ -1163,7 +1163,7 @@ def find_by_pattern(
     ctx: typer.Context,
     pattern: str = typer.Argument(..., help="Substring pattern to search (fuzzy search fallback)"),
     case_sensitive: bool = typer.Option(False, "--case-sensitive", "-c", help="Case-sensitive search"),
-    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file or folder path"),
     visual: bool = typer.Option(False, "--visual", "--viz", "-V", help="Show results as interactive graph visualization")
 ):
     """
@@ -1287,7 +1287,7 @@ def find_by_pattern(
 def find_by_type(
     ctx: typer.Context,
     element_type: str = typer.Argument(..., help="Type to search for (function, class, file, module)"),
-    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file or folder path"),
     limit: int = typer.Option(50, "--limit", "-l", help="Maximum results to return"),
     visual: bool = typer.Option(False, "--visual", "--viz", "-V", help="Show results as interactive graph visualization")
 ):
@@ -1555,7 +1555,7 @@ app.add_typer(analyze_app, name="analyze")
 def analyze_calls(
     ctx: typer.Context,
     function: str = typer.Argument(..., help="Function name to analyze"),
-    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file or folder path"),
     visual: bool = typer.Option(False, "--visual", "--viz", "-V", help="Show results as interactive graph visualization")
 ):
     """
@@ -1610,7 +1610,7 @@ def analyze_calls(
 def analyze_callers(
     ctx: typer.Context,
     function: str = typer.Argument(..., help="Function name to analyze"),
-    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file or folder path"),
     visual: bool = typer.Option(False, "--visual", "--viz", "-V", help="Show results as interactive graph visualization")
 ):
     """
@@ -1791,7 +1791,7 @@ def analyze_dependencies(
 def analyze_inheritance_tree(
     ctx: typer.Context,
     class_name: str = typer.Argument(..., help="Class name"),
-    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file path"),
+    file: Optional[str] = typer.Option(None, "--file", "-f", help="Specific file or folder path"),
     visual: bool = typer.Option(False, "--visual", "--viz", "-V", help="Show results as interactive graph visualization")
 ):
     """
