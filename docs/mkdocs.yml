@@ -42,8 +42,10 @@ nav:
   - Core Concepts:
     - How it Works: concepts/how_it_works.md
     - "System Architecture": architecture.md
+    - "Code Structure": code_structure.md
     - The Graph Model: concepts/the_graph.md
     - CLI vs MCP Modes: concepts/modes.md
+    - Graph Builder: graph_builder.md
   - CLI Reference:
     - "All Commands (Master List)": reference/cli_master.md
     - "Indexing & Management": reference/cli_indexing.md
@@ -54,6 +56,7 @@ nav:
     - "Example Cookbook": cookbook.md
   - Project Info:
     - Roadmap: roadmap.md
+    - "AST-to-Graph Planning": ast_to_graph_planning.md
     - Contributing: contributing.md
     - License: license.md
     - Configuration: reference/configuration.md
